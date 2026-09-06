@@ -1,0 +1,20 @@
+[project]
+name = "merdoscopio"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Alex Sartori", email = "alex.sartori1997@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "pyqt6>=6.11.0",
+    "pyserial>=3.5",
+]
+
+[project.scripts]
+merdoscopio = "merdoscopio:main"
+
+[build-system]
+requires = ["uv_build>=0.12.9,<0.13.0"]
+build-backend = "uv_build"
