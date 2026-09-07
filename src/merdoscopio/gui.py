@@ -1,6 +1,6 @@
 import sys
 
-from PyQt6.QtWidgets import QApplication, QFrame, QLabel, QMessageBox, QPlainTextEdit, QWidget, QMainWindow, QPushButton, QHBoxLayout, \
+from PyQt6.QtWidgets import QApplication, QDoubleSpinBox, QFrame, QLabel, QMessageBox, QPlainTextEdit, QSpinBox, QWidget, QMainWindow, QPushButton, QHBoxLayout, \
      QVBoxLayout, QGridLayout, QComboBox
 from PyQt6.QtCore import Qt, QSize, pyqtSignal as Signal
 
@@ -64,7 +64,7 @@ class VideoFeed(QWidget):
 
 class MotionControls(QWidget):
     serialDeviceSelected = Signal(str)
-    motionRequested = Signal(str, float)
+    motionRequested = Signal(str, float, int)
     homingRequested = Signal(str)
 
     def __init__(self):
@@ -80,8 +80,11 @@ class MotionControls(QWidget):
 
         self.w_lbl_loc = QLabel("Axes locations")
         self.w_lbl_x = QLabel("X: ??.??")
+        self.w_lbl_x.setDisabled(True)
         self.w_lbl_y = QLabel("Y: ??.??")
+        self.w_lbl_y.setDisabled(True)
         self.w_lbl_z = QLabel("Z: ??.??")
+        self.w_lbl_z.setDisabled(True)
 
         self.w_lbl_h = QLabel("Home axes")
         self.w_xh = QPushButton('X')
@@ -92,14 +95,39 @@ class MotionControls(QWidget):
         self.w_zh.clicked.connect(lambda: self.homingRequested.emit('Z'))
 
         self.w_lbl_ctr = QLabel("XY control")
+        self.w_xy_step = QDoubleSpinBox()
+        self.w_xy_step.setMinimum(0.01)
+        self.w_xy_step.setValue(1.0)
+        self.w_xy_step.setMaximum(100)
+        self.w_xy_step.setSuffix("mm")
+        self.w_xy_f = QSpinBox()
+        self.w_xy_f.setMinimum(1)
+        self.w_xy_f.setValue(50)
+        self.w_xy_f.setMaximum(1000)
+        self.w_xy_f.setPrefix('F')
         self.w_xn = QPushButton('X-')
+        self.w_xn.clicked.connect(self.motionBtnPressed)
         self.w_xp = QPushButton('X+')
-        self.w_xp.clicked.connect(self.swag)
+        self.w_xp.clicked.connect(self.motionBtnPressed)
         self.w_yn = QPushButton('Y-')
+        self.w_yn.clicked.connect(self.motionBtnPressed)
         self.w_yp = QPushButton('Y+')
+        self.w_yp.clicked.connect(self.motionBtnPressed)
         self.w_lbl_foc = QLabel("Focus")
+        self.w_z_step = QDoubleSpinBox()
+        self.w_z_step.setMinimum(0.01)
+        self.w_z_step.setValue(0.5)
+        self.w_z_step.setMaximum(50)
+        self.w_z_step.setSuffix("mm")
+        self.w_z_f = QSpinBox()
+        self.w_z_f.setMinimum(1)
+        self.w_z_f.setValue(20)
+        self.w_z_f.setMaximum(100)
+        self.w_z_f.setPrefix('F')
         self.w_zn = QPushButton('Z-')
+        self.w_zn.clicked.connect(self.motionBtnPressed)
         self.w_zp = QPushButton('Z+')
+        self.w_zp.clicked.connect(self.motionBtnPressed)
 
         layout = QGridLayout()
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -124,22 +152,44 @@ class MotionControls(QWidget):
         # XYZ control
         row0 = 11
         layout.addWidget(self.w_lbl_ctr, row0, 0, 1, 3)
-        layout.addWidget(self.w_xn, row0+2, 0)
-        layout.addWidget(self.w_xp, row0+2, 2)
-        layout.addWidget(self.w_yn, row0+3, 1)
-        layout.addWidget(self.w_yp, row0+1, 1)
-        layout.addWidget(QHLine(), row0+4, 0, 1, 3)
-        layout.addWidget(self.w_lbl_foc, row0+5, 0, 1, 3)
-        layout.addWidget(self.w_zn, row0+6, 0)
-        layout.addWidget(self.w_zp, row0+6, 2)
+        layout.addWidget(QLabel("Step size:"), row0+1, 0)
+        layout.addWidget(self.w_xy_step, row0+1, 1, 1, 2)
+        layout.addWidget(QLabel("Speed rate:"), row0+2, 0)
+        layout.addWidget(self.w_xy_f, row0+2, 1, 1, 2)
+        layout.addWidget(QLabel(""), row0+3, 0)
+        row0 += 4
+        layout.addWidget(self.w_xn, row0+1, 0)
+        layout.addWidget(self.w_xp, row0+1, 2)
+        layout.addWidget(self.w_yn, row0+2, 1)
+        layout.addWidget(self.w_yp, row0, 1)
+        layout.addWidget(QHLine(), row0+3, 0, 1, 3)
+        layout.addWidget(self.w_lbl_foc, row0+4, 0, 1, 3)
+
+        row0 += 5
+        layout.addWidget(QLabel("Step size:"), row0+1, 0)
+        layout.addWidget(self.w_z_step, row0+1, 1, 1, 2)
+        layout.addWidget(QLabel("Speed rate:"), row0+2, 0)
+        layout.addWidget(self.w_z_f, row0+2, 1, 1, 2)
+        layout.addWidget(QLabel(""), row0+3, 0)
+        layout.addWidget(self.w_zn, row0+4, 0)
+        layout.addWidget(self.w_zp, row0+4, 2)
 
         self.setLayout(layout)
 
     def setSerialDevices(self, devices):
         self.w_if_choice.addItems(str(d) for d in devices)
 
-    def swag(self):
-        self.motionRequested.emit('x', 20.31)
+    def motionBtnPressed(self):
+        lbl = self.sender().text()
+        axis, sign = lbl[0], -1 if lbl[1] == '-' else 1
+
+        if axis not in 'XYZ':
+            raise ValueError(f"Invalid axis> {axis}")
+
+        step = self.w_xy_step.value() if axis in 'XY' else self.w_z_step.value()
+        rate = self.w_xy_f.value() if axis in 'XY' else self.w_z_f.value()
+
+        self.motionRequested.emit(axis, step * sign, rate)
 
 
 class MainWindow(QMainWindow):

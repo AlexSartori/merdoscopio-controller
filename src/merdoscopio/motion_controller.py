@@ -30,7 +30,8 @@ class MotionController:
         print(cmd, reply)
 
         if reply != 'ok':
-            raise Exception(f"Unexpected reply from endpoint: 'ok' != '{reply}'")
+            # raise Exception(f"Unexpected reply from endpoint: 'ok' != '{reply}'")
+            print(f"Unexpected reply from endpoint: 'ok' != '{reply}'")
         self.serial_log_cb(f"Sent off: [{cmd}] ({reply})")
 
 
@@ -48,8 +49,9 @@ class MotionController:
             raise ex
 
 
-    def move(self, axis, amount):
-        self.serial_log_cb(f"Moving axis {axis} by {amount}mm")
+    def move(self, axis, amount, rate):
+        self.serial_log_cb(f"Moving axis {axis} by {amount}mm at rate F{rate}")
+        self.sendAndConfirm(f"G0 {axis}{amount} F{rate}")
 
 
     def homeAxis(self, axis):
